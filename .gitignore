@@ -1,0 +1,398 @@
+const missions = {
+  lunar: {
+    label: 'Lunar Base',
+    daysToWin: 18,
+    powerBase: 24,
+    foodBase: 14,
+    oxygenBase: 18,
+    radiationBase: 26,
+    description: 'The Moon gives you easier launch logistics but exposes the base to sharp temperature swings and periodic solar activity.'
+  },
+  mars: {
+    label: 'Mars Outpost',
+    daysToWin: 24,
+    powerBase: 18,
+    foodBase: 18,
+    oxygenBase: 18,
+    radiationBase: 34,
+    description: 'Mars adds higher radiation risk, dust storms, and a more fragile logistics chain that pushes every trade-off harder.'
+  }
+};
+
+const resourceMeta = {
+  oxygen: { label: 'Oxygen', color: '#58d0ff' },
+  water: { label: 'Water', color: '#7eaaf7' },
+  food: { label: 'Food', color: '#6fe7b2' },
+  power: { label: 'Power', color: '#f7d76a' },
+  radiation: { label: 'Radiation', color: '#ff7a7a' },
+  habitat: { label: 'Habitat', color: '#caa7ff' },
+  morale: { label: 'Morale', color: '#ffb066' }
+};
+
+const systemMeta = {
+  lifeSupport: { label: 'Life Support', note: 'Recovers oxygen and water for the crew' },
+  shielding: { label: 'Radiation Shielding', note: 'Cuts the danger from solar flares and cosmic rays' },
+  power: { label: 'Power Generation', note: 'Feeds systems and emergency reserves' },
+  agriculture: { label: 'Agriculture', note: 'Produces food and supports crew resilience' },
+  habitat: { label: 'Habitat Integrity', note: 'Keeps the base safe and repairable' }
+};
+
+const actionMeta = {
+  support: {
+    label: 'Tune Life Support',
+    description: 'Improve oxygen recycling and water recovery. Good for long missions, but it needs power.',
+    apply: (state) => {
+      state.systems.lifeSupport += 1;
+      state.resources.power -= 8;
+      state.resources.morale += 4;
+      state.log.push('Life support tuning increases oxygen recovery and crew comfort.');
+    }
+  },
+  shield: {
+    label: 'Reinforce Shelling',
+    description: 'Add panels and ballast to protect crew from radiation. Very effective but costly.',
+    apply: (state) => {
+      state.systems.shielding += 1;
+      state.resources.power -= 10;
+      state.resources.habitat -= 4;
+      state.resources.morale += 2;
+      state.log.push('Shielding is reinforced, reducing radiation exposure during storms.');
+    }
+  },
+  solar: {
+    label: 'Expand Solar Arrays',
+    description: 'Increase power generation to support the full outpost. Helps in every phase of the mission.',
+    apply: (state) => {
+      state.systems.power += 1;
+      state.resources.power += 12;
+      state.resources.habitat -= 2;
+      state.log.push('New panels increase energy output for life support, workshops, and science labs.');
+    }
+  },
+  greenhouse: {
+    label: 'Expand Greenhouse',
+    description: 'Grow more food locally and reduce dependence on resupply. Requires power and maintenance.',
+    apply: (state) => {
+      state.systems.agriculture += 1;
+      state.resources.power -= 9;
+      state.resources.habitat -= 3;
+      state.resources.morale += 3;
+      state.log.push('The greenhouse spreads further, increasing long-term food security.');
+    }
+  },
+  repair: {
+    label: 'Repair Habitat',
+    description: 'Patch pressure leaks and structural damage. Critical when the base begins to wear out.',
+    apply: (state) => {
+      state.systems.habitat += 1;
+      state.resources.power -= 6;
+      state.resources.morale += 5;
+      state.log.push('Structural maintenance repairs leaks and improves base resilience.');
+    }
+  },
+  resupply: {
+    label: 'Request Resupply',
+    description: 'Launch a cargo delivery with extra oxygen, water, and food. Useful but it creates a fragile dependency.',
+    apply: (state) => {
+      state.resources.oxygen += 18;
+      state.resources.water += 16;
+      state.resources.food += 14;
+      state.resources.power -= 5;
+      state.resources.morale += 3;
+      state.log.push('A cargo resupply arrives with spare supplies and emergency buffer stock.');
+    }
+  },
+  drill: {
+    label: 'Run Crew Drill',
+    description: 'Train the crew for emergencies and system failures. Better preparedness lowers the cost of surprise events.',
+    apply: (state) => {
+      state.resources.morale += 9;
+      state.resources.power -= 3;
+      state.log.push('The crew train for emergencies, improving response times and morale.');
+    }
+  }
+};
+
+const state = {
+  mission: 'lunar',
+  day: 1,
+  crew: 6,
+  resources: {
+    oxygen: 82,
+    water: 76,
+    food: 74,
+    power: 67,
+    radiation: 22,
+    habitat: 81,
+    morale: 73
+  },
+  systems: {
+    lifeSupport: 1,
+    shielding: 1,
+    power: 1,
+    agriculture: 1,
+    habitat: 1
+  },
+  log: [],
+  action: null,
+  status: 'Nominal',
+  gameOver: false,
+  won: false
+};
+
+const resourceGrid = document.getElementById('resourceGrid');
+const systemsList = document.getElementById('systemsList');
+const actionButtons = document.getElementById('actionButtons');
+const missionLog = document.getElementById('missionLog');
+const advanceDayBtn = document.getElementById('advanceDayBtn');
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function setMission(missionKey) {
+  state.mission = missionKey;
+  const mission = missions[missionKey];
+  state.day = 1;
+  state.resources = {
+    oxygen: 82,
+    water: 78,
+    food: 76,
+    power: 68,
+    radiation: mission.radiationBase,
+    habitat: 80,
+    morale: 74
+  };
+  state.systems = {
+    lifeSupport: 1,
+    shielding: 1,
+    power: 1,
+    agriculture: 1,
+    habitat: 1
+  };
+  state.log = [
+    `Mission configured: ${mission.label}. ${mission.description}`,
+    'Your first decision will shape how the outpost handles crew needs, power limits, and radiation risk.'
+  ];
+  state.gameOver = false;
+  state.won = false;
+  state.status = 'Nominal';
+  render();
+}
+
+function getMission() {
+  return missions[state.mission];
+}
+
+function renderResourceCard(key, value) {
+  const meta = resourceMeta[key];
+  const pct = clamp(value, 0, 100);
+  const color = meta.color;
+
+  return `
+    <div class="resource-card">
+      <div class="resource-header">
+        <span>${meta.label}</span>
+        <span class="resource-value"><strong>${Math.round(value)}</strong>%</span>
+      </div>
+      <div class="progress-bar">
+        <span class="progress-fill" style="width: ${pct}%; background: linear-gradient(90deg, ${color}, rgba(255,255,255,0.35));"></span>
+      </div>
+    </div>
+  `;
+}
+
+function renderResources() {
+  const values = Object.entries(resourceMeta)
+    .map(([key]) => renderResourceCard(key, state.resources[key]))
+    .join('');
+
+  resourceGrid.innerHTML = values;
+}
+
+function renderSystems() {
+  const rows = Object.entries(systemMeta)
+    .map(([key, meta]) => `
+      <div class="system-row">
+        <div>
+          <strong>${meta.label}</strong>
+          <small>${meta.note}</small>
+        </div>
+        <span class="system-badge">Lv ${state.systems[key]}</span>
+      </div>
+    `)
+    .join('');
+
+  systemsList.innerHTML = rows;
+}
+
+function renderActions() {
+  const actions = Object.entries(actionMeta)
+    .map(([key, action]) => `
+      <button class="action-btn" data-action="${key}">
+        <strong>${action.label}</strong>
+        <small>${action.description}</small>
+      </button>
+    `)
+    .join('');
+
+  actionButtons.innerHTML = actions;
+
+  document.querySelectorAll('.action-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (state.gameOver) return;
+      const selected = button.dataset.action;
+      const action = actionMeta[selected];
+      action.apply(state);
+      state.action = selected;
+      render();
+    });
+  });
+}
+
+function randomEvent() {
+  const roll = Math.random();
+
+  if (roll < 0.2) {
+    return {
+      title: 'Solar Flare Warning',
+      kind: 'alert',
+      message: 'A solar flare is approaching. Radiation spikes and power reserves take a hit.',
+      effects: { power: -7, radiation: 11, morale: -6 }
+    };
+  }
+
+  if (roll < 0.38) {
+    return {
+      title: 'Dust Storm',
+      kind: 'alert',
+      message: 'Dust reduces power generation and makes repairs harder.',
+      effects: { power: -9, habitat: -5, morale: -5 }
+    };
+  }
+
+  if (roll < 0.56) {
+    return {
+      title: 'Equipment Failure',
+      kind: 'alert',
+      message: 'A filter system fails. The crew must divert power and attention to repairs.',
+      effects: { oxygen: -8, power: -8, morale: -5 }
+    };
+  }
+
+  if (roll < 0.78) {
+    return {
+      title: 'Stable Conditions',
+      kind: 'success',
+      message: 'Systems are operating smoothly. Crew productivity spikes for a day.',
+      effects: { morale: 8, power: 4 }
+    };
+  }
+
+  return {
+    title: 'Scientific Breakthrough',
+    kind: 'success',
+    message: 'A small experiment yields better efficiency in waste recycling and habitat maintenance.',
+    effects: { oxygen: 5, water: 5, morale: 6 }
+  };
+}
+
+function applyDailyBalance() {
+  const mission = getMission();
+
+  const powerProduction = 18 + state.systems.power * 10 + state.systems.lifeSupport * 2;
+  const foodProduction = 10 + state.systems.agriculture * 11;
+  const oxygenRecovery = 12 + state.systems.lifeSupport * 9;
+  const waterRecovery = 10 + state.systems.lifeSupport * 8;
+  const radiationProtection = state.systems.shielding * 10 + state.systems.habitat * 2;
+  const habitatStability = 8 + state.systems.habitat * 7;
+
+  const event = randomEvent();
+
+  state.resources.oxygen = clamp(state.resources.oxygen + oxygenRecovery - state.crew * 2.4 + (event.effects.oxygen || 0), 0, 100);
+  state.resources.water = clamp(state.resources.water + waterRecovery - state.crew * 1.8 + (event.effects.water || 0), 0, 100);
+  state.resources.food = clamp(state.resources.food + foodProduction - state.crew * 2.6 + (event.effects.food || 0), 0, 100);
+  state.resources.power = clamp(state.resources.power + powerProduction - 18 - state.systems.lifeSupport * 2 - (event.effects.power || 0), 0, 100);
+  state.resources.radiation = clamp(state.resources.radiation + (mission.radiationBase / 4) - radiationProtection + (event.effects.radiation || 0), 0, 100);
+  state.resources.habitat = clamp(state.resources.habitat + habitatStability - 11 - (event.effects.habitat || 0), 0, 100);
+  state.resources.morale = clamp(state.resources.morale + (state.action ? 2 : 0) - (event.effects.morale || 0) + 1, 0, 100);
+
+  state.log.unshift(`Day ${state.day}: ${event.title}. ${event.message}`);
+  state.log.unshift(`The outpost consumes resources and adjusts to daily operations. Crew demand is moderate but persistent.`);
+
+  if (state.resources.oxygen <= 0 || state.resources.food <= 0 || state.resources.water <= 0 || state.resources.power <= 0) {
+    state.status = 'Mission Failed';
+    state.gameOver = true;
+    state.log.unshift('Critical systems have collapsed. The crew cannot sustain the outpost.');
+    return;
+  }
+
+  if (state.resources.radiation >= 95 || state.resources.habitat <= 0) {
+    state.status = 'Mission Failed';
+    state.gameOver = true;
+    state.log.unshift('Habitat integrity and radiation exposure exceeded survivable margins.');
+    return;
+  }
+
+  if (state.day >= mission.daysToWin && state.resources.oxygen >= 35 && state.resources.food >= 35 && state.resources.power >= 30 && state.resources.habitat >= 35 && state.resources.morale >= 30 && state.resources.radiation <= 70) {
+    state.status = 'Mission Success';
+    state.won = true;
+    state.gameOver = true;
+    state.log.unshift(`Mission control confirms the outpost survived the required ${mission.daysToWin} days. The habitat is stable and the crew is still viable.`);
+    return;
+  }
+
+  state.status = 'Nominal';
+  if (state.resources.oxygen < 35 || state.resources.food < 35 || state.resources.power < 30 || state.resources.habitat < 40 || state.resources.morale < 35) {
+    state.status = 'Precarious';
+  }
+
+  state.day += 1;
+}
+
+function advanceDay() {
+  if (state.gameOver) return;
+  applyDailyBalance();
+  render();
+}
+
+function renderLog() {
+  const entries = state.log.slice(0, 14).map((entry, index) => {
+    let className = 'log-entry';
+    if (entry.includes('failed') || entry.includes('collapsed') || entry.includes('exceeded')) className += ' failure';
+    else if (entry.includes('Mission control') || entry.includes('stable') || entry.includes('Scientific') || entry.includes('smoothly')) className += ' success';
+    else if (entry.includes('Warning') || entry.includes('Storm') || entry.includes('Failure')) className += ' alert';
+    return `<div class="${className}">${entry}</div>`;
+  }).join('');
+
+  missionLog.innerHTML = entries;
+}
+
+function renderHeaderStatus() {
+  document.getElementById('missionName').textContent = missions[state.mission].label;
+  document.getElementById('dayValue').textContent = String(state.day);
+  document.getElementById('crewValue').textContent = String(state.crew);
+  document.getElementById('statusValue').textContent = state.status;
+
+  document.querySelectorAll('.mission-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.mission === state.mission);
+  });
+}
+
+function render() {
+  renderHeaderStatus();
+  renderResources();
+  renderSystems();
+  renderActions();
+  renderLog();
+}
+
+document.querySelectorAll('.mission-btn').forEach((button) => {
+  button.addEventListener('click', () => {
+    setMission(button.dataset.mission);
+  });
+});
+
+advanceDayBtn.addEventListener('click', advanceDay);
+
+setMission('lunar');
