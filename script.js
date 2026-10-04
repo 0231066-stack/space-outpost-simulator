@@ -4,15 +4,15 @@ const MISSION_CONFIG = {
   mars: { name: 'Mars Outpost', days: 21, radiationGain: 2, difficulty: 'Hard' },
 };
 
-// ── Resource metadata ────────────────────────────────────────────────
+// ── Resource metadata (GBA palette) ──────────────────────────────────
 const RESOURCE_META = {
-  oxygen:    { label: 'Oxygen',            color: '#58d0ff' },
-  food:      { label: 'Food',              color: '#6fe7b2' },
-  power:     { label: 'Power',             color: '#f7d76a' },
-  water:     { label: 'Water',             color: '#7eaaf7' },
-  radiation: { label: 'Radiation',         color: '#caa7ff' },
-  habitat:   { label: 'Habitat Stability', color: '#ffb066' },
-  morale:    { label: 'Crew Morale',       color: '#ff9ecb' },
+  oxygen:    { label: 'Oxygen',            color: '#4aa3e0' },
+  food:      { label: 'Food',              color: '#57c04f' },
+  power:     { label: 'Power',             color: '#f2cf3f' },
+  water:     { label: 'Water',             color: '#7fd0f4' },
+  radiation: { label: 'Radiation',         color: '#b07fd8' },
+  habitat:   { label: 'Habitat Stability', color: '#e08a3a' },
+  morale:    { label: 'Crew Morale',       color: '#e86a9a' },
 };
 
 // Base daily demand, before systems and crew offset it
@@ -100,6 +100,7 @@ function createGame(mission) {
 }
 
 let game = createGame('moon');
+let prevResources = null; // snapshot for change-flash feedback
 
 function clamp(value) { return Math.max(0, Math.min(100, value)); }
 function crewCount() { return Object.values(game.crew).reduce((sum, n) => sum + n, 0); }
@@ -297,8 +298,9 @@ function updateGameState() {
   document.getElementById('statusValue').textContent = game.status;
 
   const rates = netPerDay();
+  const prev = prevResources || {};
 
-  // Resources with their daily rate
+  // Resources with their daily rate; values flash when they change
   const grid = document.getElementById('resourceGrid');
   grid.innerHTML = '';
   for (const [key, meta] of Object.entries(RESOURCE_META)) {
@@ -309,14 +311,20 @@ function updateGameState() {
     if (key === 'radiation') rateClass = rate > 0.05 ? 'down' : rate < -0.05 ? 'up' : 'steady';
     else rateClass = rate > 0.05 ? 'up' : rate < -0.05 ? 'down' : 'steady';
 
+    let flash = '';
+    if (prev[key] !== undefined && Math.round(prev[key]) !== val) {
+      const improved = key === 'radiation' ? val < prev[key] : val > prev[key];
+      flash = improved ? 'flash-up' : 'flash-down';
+    }
+
     const card = document.createElement('div');
     card.className = 'resource-card';
     card.innerHTML = `
       <div class="resource-header">
         <span class="label">${meta.label}</span>
-        <span class="resource-value"><strong>${val}</strong></span>
+        <span class="resource-value"><strong class="${flash}">${val}</strong></span>
       </div>
-      <div class="progress-bar"><span class="progress-fill" style="width:${val}%;background:${meta.color}"></span></div>
+      <div class="progress-bar"><span class="progress-fill" style="width:${val}%;background-color:${meta.color}"></span></div>
       <span class="resource-rate ${rateClass}">${rateText}</span>
     `;
     grid.appendChild(card);
@@ -395,11 +403,14 @@ function updateGameState() {
   document.querySelectorAll('.mission-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.mission === game.mission);
   });
+
+  prevResources = { ...game.resources };
 }
 
 // ── Init ─────────────────────────────────────────────────────────────
 function startMission(missionName) {
   game = createGame(missionName);
+  prevResources = null;
   log(`Mission initiated: ${MISSION_CONFIG[missionName].name}. Survive ${MISSION_CONFIG[missionName].days} days.`, 'success');
   updateGameState();
 }
