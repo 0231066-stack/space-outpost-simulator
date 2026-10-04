@@ -1,204 +1,223 @@
-// ── Mission definitions ──────────────────────────────────────────────
-const MISSIONS = {
-  lunar: { name: 'Lunar Base', days: 14, crew: 6, radiationRisk: 0.22, dustRisk: 0.05, solarMult: 1.3 },
-  mars:  { name: 'Mars Outpost', days: 21, crew: 8, radiationRisk: 0.10, dustRisk: 0.20, solarMult: 0.5 },
+// ── Mission configuration ────────────────────────────────────────────
+const MISSION_CONFIG = {
+  moon: { name: 'Moon Base',    days: 14, radiationGain: 3, solarRisk: 0.20, dustRisk: 0.05 },
+  mars: { name: 'Mars Outpost', days: 21, radiationGain: 2, solarRisk: 0.10, dustRisk: 0.20 },
 };
 
 // ── Resource metadata ────────────────────────────────────────────────
 const RESOURCE_META = {
-  oxygen:  { label: 'Oxygen',  color: '#58d0ff' },
-  food:    { label: 'Food',    color: '#6fe7b2' },
-  power:   { label: 'Power',   color: '#f7d76a' },
-  water:   { label: 'Water',   color: '#7eaaf7' },
-  habitat: { label: 'Habitat Stability', color: '#ffb066' },
+  oxygen:    { label: 'Oxygen',            color: '#58d0ff' },
+  food:      { label: 'Food',              color: '#6fe7b2' },
+  power:     { label: 'Power',             color: '#f7d76a' },
+  water:     { label: 'Water',             color: '#7eaaf7' },
+  radiation: { label: 'Radiation',         color: '#caa7ff' },
+  habitat:   { label: 'Habitat Stability', color: '#ffb066' },
+  morale:    { label: 'Crew Morale',       color: '#ff9ecb' },
 };
 
 // ── System metadata ──────────────────────────────────────────────────
 const SYSTEM_META = {
-  lifeSupport: { label: 'Life Support',       desc: 'Oxygen & water recycling' },
-  shielding:   { label: 'Radiation Shielding', desc: 'Protects crew from cosmic radiation' },
-  powerGen:    { label: 'Power Generation',    desc: 'Solar arrays & reactor output' },
-  foodProd:    { label: 'Food Production',     desc: 'Hydroponics & ration management' },
-  habitatInt:  { label: 'Habitat Integrity',   desc: 'Structural soundness of the base' },
+  lifeSupport: { label: 'Life Support', desc: 'Oxygen & water recycling' },
+  power:       { label: 'Power',        desc: 'Generation & storage' },
+  food:        { label: 'Food',         desc: 'Hydroponics & rations' },
+  shielding:   { label: 'Shielding',    desc: 'Radiation protection' },
+  habitat:     { label: 'Habitat',      desc: 'Structural integrity' },
 };
 
-// ── Player actions (one per turn) ─────────────────────────────────────
+// ── Available actions ────────────────────────────────────────────────
 const ACTIONS = [
-  { system: 'lifeSupport', label: 'Boost Life Support',      desc: '+15 Life Support · −10 Power' },
-  { system: 'shielding',   label: 'Deploy Shielding',         desc: '+15 Shielding · −8 Power' },
-  { system: 'powerGen',    label: 'Run Power Generator',      desc: '+15 Power Gen · −5 Habitat' },
-  { system: 'foodProd',    label: 'Tend Hydroponics',         desc: '+15 Food Prod · −10 Power' },
-  { system: 'habitatInt',  label: 'Repair Habitat',          desc: '+15 Integrity · −10 Power' },
+  { name: 'upgradePower',       label: 'Upgrade Power',        desc: '+1 Power system · +12 Power · −2 Habitat' },
+  { name: 'upgradeFood',        label: 'Upgrade Food',         desc: '+1 Food system · +15 Food · −8 Power' },
+  { name: 'upgradeLifeSupport', label: 'Upgrade Life Support', desc: '+1 Life Support · +10 Oxygen · +10 Water · −6 Power' },
+  { name: 'upgradeShielding',   label: 'Upgrade Shielding',    desc: '+1 Shielding · −12 Radiation · −10 Power' },
+  { name: 'repairHabitat',      label: 'Repair Habitat',       desc: '+1 Habitat system · +12 Habitat · −5 Power' },
 ];
 
 // ── Game state ───────────────────────────────────────────────────────
-let state = null;
-
-function clamp(v) { return Math.max(0, Math.min(100, v)); }
-
-function startMission(key) {
-  const m = MISSIONS[key];
-  state = {
-    missionKey: key,
-    mission: m,
+function createGame(mission) {
+  return {
     day: 1,
-    crew: m.crew,
+    mission: mission, // "moon" or "mars"
     status: 'Nominal',
-    resources: { oxygen: 82, food: 80, power: 75, water: 80, habitat: 85 },
-    systems:   { lifeSupport: 60, shielding: 50, powerGen: 65, foodProd: 55, habitatInt: 70 },
-    selectedAction: null,
     gameOver: false,
     won: false,
+
+    resources: {
+      oxygen: 80,
+      food: 75,
+      power: 70,
+      water: 78,
+      radiation: 28,
+      habitat: 80,
+      morale: 70,
+    },
+
+    systems: {
+      lifeSupport: 1,
+      power: 1,
+      food: 1,
+      shielding: 1,
+      habitat: 1,
+    },
+
+    crew: {
+      engineer: 1,
+      botanist: 1,
+      lifeSupport: 1,
+      shieldSpecialist: 1,
+    },
+
     log: [],
   };
-  log(`Mission initiated: ${m.name}. Survive ${m.days} days with ${m.crew} crew.`, 'success');
-  render();
 }
 
-function log(msg, type) {
-  state.log.unshift({ day: state.day, msg, type: type || '' });
-}
+let game = createGame('moon');
 
-// ── Turn processing ──────────────────────────────────────────────────
-function applyAction() {
-  if (!state.selectedAction || state.gameOver) return;
-  const action = ACTIONS.find(a => a.system === state.selectedAction);
-  const sys = state.selectedAction;
+function clamp(value) { return Math.max(0, Math.min(100, value)); }
+function crewCount() { return Object.values(game.crew).reduce((sum, n) => sum + n, 0); }
+function log(msg, type) { game.log.unshift({ day: game.day, msg, type: type || '' }); }
 
-  state.systems[sys] = clamp(state.systems[sys] + 15);
+// ── Player actions ───────────────────────────────────────────────────
+function applyAction(actionName) {
+  if (game.gameOver) return;
 
-  // Action costs
-  if (sys === 'powerGen') {
-    state.resources.habitat = clamp(state.resources.habitat - 5);
-  } else if (sys === 'habitatInt') {
-    state.resources.power = clamp(state.resources.power - 10);
-  } else {
-    state.resources.power = clamp(state.resources.power - (sys === 'shielding' ? 8 : 10));
+  switch (actionName) {
+    case "upgradePower":
+      game.systems.power += 1;
+      game.resources.power += 12;
+      game.resources.habitat -= 2;
+      break;
+
+    case "upgradeFood":
+      game.systems.food += 1;
+      game.resources.food += 15;
+      game.resources.power -= 8;
+      break;
+
+    case "upgradeLifeSupport":
+      game.systems.lifeSupport += 1;
+      game.resources.oxygen += 10;
+      game.resources.water += 10;
+      game.resources.power -= 6;
+      break;
+
+    case "upgradeShielding":
+      game.systems.shielding += 1;
+      game.resources.radiation -= 12;
+      game.resources.power -= 10;
+      break;
+
+    case "repairHabitat":
+      game.systems.habitat += 1;
+      game.resources.habitat += 12;
+      game.resources.power -= 5;
+      break;
   }
 
-  log(`Action: ${action.label}`);
-  state.selectedAction = null;
-  advanceDay();
+  resolveDailyEvent();
+  updateGameState();
 }
 
-function advanceDay() {
-  if (state.gameOver) return;
-  const m = state.mission;
-  const s = state.systems;
-  const r = state.resources;
-  const crew = state.crew;
-  const hasPower = r.power > 0;
+// ── Daily simulation ─────────────────────────────────────────────────
+function resolveDailyEvent() {
+  if (game.gameOver) return;
 
-  // Oxygen — consumed by crew, recycled by life support
-  r.oxygen = clamp(r.oxygen + s.lifeSupport * 0.12 * (hasPower ? 1 : 0.3) - crew * 0.7 * (1 - s.lifeSupport / 180));
+  const cfg = MISSION_CONFIG[game.mission];
+  const r = game.resources;
+  const s = game.systems;
+  const crew = crewCount();
 
-  // Food — consumed by crew, produced by hydroponics
-  r.food = clamp(r.food + s.foodProd * 0.10 * (hasPower ? 1 : 0.2) - crew * 0.6 * (1 - s.foodProd / 200));
+  // Consumption and production
+  r.oxygen    = clamp(r.oxygen    - (crew * 1.2 - s.lifeSupport * 2.5));
+  r.water     = clamp(r.water     - (crew * 1.0 - s.lifeSupport * 2));
+  r.food      = clamp(r.food      - (crew * 1.2 - s.food * 2.5));
+  r.power     = clamp(r.power + s.power * 2.5 - (s.lifeSupport + s.power + s.food + s.shielding + s.habitat) * 0.9);
+  r.radiation = clamp(r.radiation + cfg.radiationGain - s.shielding * 2.5);
+  r.habitat   = clamp(r.habitat   - (1.8 - s.habitat * 0.5));
 
-  // Water — consumed by crew, recycled by life support
-  r.water = clamp(r.water + s.lifeSupport * 0.08 * (hasPower ? 1 : 0.3) - crew * 0.5 * (1 - s.lifeSupport / 200));
+  // Morale tracks the overall health of the outpost
+  const health = (r.oxygen + r.food + r.power + r.water + r.habitat + (100 - r.radiation)) / 6;
+  r.morale = clamp(r.morale + (health - 50) / 12);
 
-  // Power — produced by generator, consumed by all systems
-  r.power = clamp(r.power + s.powerGen * 0.18 * m.solarMult - ((s.lifeSupport + s.shielding + s.foodProd + s.habitatInt) * 0.04 + crew * 0.3));
-
-  // Habitat — slowly degrades, mitigated by integrity
-  r.habitat = clamp(r.habitat - 2.5 * (1 - s.habitatInt / 140));
-
-  // System wear
-  for (const k in s) s[k] = clamp(s[k] - 1.5);
-
-  rollEvents();
-  checkConditions();
-
-  if (!state.gameOver) {
-    state.day++;
-    if (state.day > m.days) {
-      if (r.habitat > 20 && r.oxygen > 0 && r.food > 0 && r.water > 0) {
-        state.won = true;
-        state.gameOver = true;
-        state.status = 'Mission Complete';
-        log('Mission complete! The outpost survived the full mission window.', 'success');
-      } else {
-        state.gameOver = true;
-        state.status = 'Mission Failed';
-        log('The mission window ended, but the outpost was not in a stable state.', 'failure');
-      }
-    }
-  }
-
-  render();
+  resolveRandomEvent(cfg);
+  checkMissionEnd(cfg);
 }
 
 // ── Random events ────────────────────────────────────────────────────
-function rollEvents() {
-  const m = state.mission;
+function resolveRandomEvent(cfg) {
+  const r = game.resources;
 
-  if (Math.random() < m.radiationRisk * 0.3) {
-    const damage = 8 + Math.random() * 12;
-    const mitigated = damage * (1 - state.systems.shielding / 130);
-    state.resources.habitat = clamp(state.resources.habitat - mitigated);
-    if (mitigated > 5) state.crew = Math.max(0, state.crew - 1);
-    log(`☀ Solar storm! Radiation impacts the outpost (−${Math.round(mitigated)} habitat${mitigated > 5 ? ', 1 crew lost' : ''}).`, 'alert');
+  if (Math.random() < cfg.solarRisk * 0.4) {
+    const surge = 8 + Math.random() * 10;
+    r.radiation = clamp(r.radiation + surge);
+    r.habitat = clamp(r.habitat - surge * 0.4);
+    log(`☀ Solar storm! Radiation surged (+${Math.round(surge)}).`, 'alert');
   }
 
-  if (Math.random() < m.dustRisk * 0.3) {
-    const powerLoss = 6 + Math.random() * 10;
-    state.resources.power = clamp(state.resources.power - powerLoss);
-    state.systems.powerGen = clamp(state.systems.powerGen - 5);
-    log(`🌪 Dust storm! Solar arrays degraded (−${Math.round(powerLoss)} power).`, 'alert');
+  if (Math.random() < cfg.dustRisk * 0.4) {
+    const loss = 6 + Math.random() * 8;
+    r.power = clamp(r.power - loss);
+    log(`🌪 Dust storm! Power reserves drained (−${Math.round(loss)}).`, 'alert');
   }
 
-  if (Math.random() < 0.08) {
-    const keys = Object.keys(state.systems);
-    const failKey = keys[Math.floor(Math.random() * keys.length)];
-    state.systems[failKey] = clamp(state.systems[failKey] - 12);
-    log(`⚙ Equipment failure in ${SYSTEM_META[failKey].label} (−12).`, 'alert');
+  if (Math.random() < 0.1) {
+    const keys = Object.keys(game.systems);
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    game.systems[key] = Math.max(1, game.systems[key] - 1);
+    log(`⚙ Equipment failure in ${SYSTEM_META[key].label} (−1 level).`, 'alert');
   }
 }
 
 // ── Win / lose checks ────────────────────────────────────────────────
-function checkConditions() {
-  const r = state.resources;
-  const failures = [
-    [r.oxygen,  'Oxygen depleted. The crew has suffocated.'],
-    [r.food,    'Food supplies exhausted. The crew has starved.'],
-    [r.water,   'Water reserves depleted. The crew has dehydrated.'],
-    [r.power,   'Power systems offline. The outpost has gone dark.'],
-    [r.habitat, 'Habitat structural failure. The base has decompressed.'],
+function checkMissionEnd(cfg) {
+  const r = game.resources;
+
+  const fatal = [
+    [r.oxygen <= 0,     'Oxygen depleted. The crew has suffocated.'],
+    [r.water <= 0,      'Water reserves depleted. The crew has dehydrated.'],
+    [r.food <= 0,       'Food supplies exhausted. The crew has starved.'],
+    [r.power <= 0,      'Power systems offline. The outpost has gone dark.'],
+    [r.habitat <= 0,    'Habitat structural failure. The base has decompressed.'],
+    [r.radiation >= 100,'Radiation levels lethal. The crew has been exposed.'],
+    [r.morale <= 0,     'Crew morale collapsed. The mission has been abandoned.'],
   ];
 
-  for (const [val, msg] of failures) {
-    if (val <= 0) {
-      state.gameOver = true;
-      state.status = 'Mission Failed';
-      log(msg, 'failure');
-      return;
-    }
+  for (const [failed, msg] of fatal) {
+    if (failed) { endGame(false, msg); return; }
   }
 
-  if (state.crew <= 0) {
-    state.gameOver = true;
-    state.status = 'Mission Failed';
-    log('All crew lost. The outpost stands empty.', 'failure');
+  const critical = [r.oxygen, r.food, r.power, r.water, r.habitat, r.morale].filter(v => v < 20).length;
+  game.status = critical >= 2 ? 'Critical' : critical >= 1 ? 'Warning' : 'Nominal';
+
+  if (game.day >= cfg.days) {
+    endGame(true, 'Mission complete! The outpost survived the full mission window.');
     return;
   }
 
-  const critical = Object.values(r).filter(v => v < 20).length;
-  state.status = critical >= 2 ? 'Critical' : critical >= 1 ? 'Warning' : 'Nominal';
+  game.day++;
+}
+
+function endGame(won, msg) {
+  game.gameOver = true;
+  game.won = won;
+  game.status = won ? 'Mission Complete' : 'Mission Failed';
+  log(msg, won ? 'success' : 'failure');
 }
 
 // ── Rendering ────────────────────────────────────────────────────────
-function render() {
-  document.getElementById('missionName').textContent = state.mission.name;
-  document.getElementById('dayValue').textContent = `${state.day} / ${state.mission.days}`;
-  document.getElementById('crewValue').textContent = state.crew;
-  document.getElementById('statusValue').textContent = state.status;
+function updateGameState() {
+  const cfg = MISSION_CONFIG[game.mission];
 
-  // Resource cards
+  document.getElementById('missionName').textContent = cfg.name;
+  document.getElementById('dayValue').textContent = `${game.day} / ${cfg.days}`;
+  document.getElementById('crewValue').textContent = crewCount();
+  document.getElementById('statusValue').textContent = game.status;
+
+  // Resources
   const grid = document.getElementById('resourceGrid');
   grid.innerHTML = '';
   for (const [key, meta] of Object.entries(RESOURCE_META)) {
-    const val = Math.round(state.resources[key]);
+    const val = Math.round(game.resources[key]);
     const card = document.createElement('div');
     card.className = 'resource-card';
     card.innerHTML = `
@@ -211,67 +230,63 @@ function render() {
     grid.appendChild(card);
   }
 
-  // Systems list
+  // Systems
   const sysList = document.getElementById('systemsList');
   sysList.innerHTML = '';
   for (const [key, meta] of Object.entries(SYSTEM_META)) {
-    const val = Math.round(state.systems[key]);
     const row = document.createElement('div');
     row.className = 'system-row';
     row.innerHTML = `
       <div><strong>${meta.label}</strong><small>${meta.desc}</small></div>
-      <span class="system-badge">${val}</span>
+      <span class="system-badge">Lv ${game.systems[key]}</span>
     `;
     sysList.appendChild(row);
   }
 
-  // Action buttons
+  // Actions — choosing one resolves the day
   const actBtns = document.getElementById('actionButtons');
   actBtns.innerHTML = '';
-  ACTIONS.forEach(a => {
+  ACTIONS.forEach(action => {
     const btn = document.createElement('button');
-    btn.className = 'action-btn' + (state.selectedAction === a.system ? ' active' : '');
-    btn.innerHTML = `<strong>${a.label}</strong><small>${a.desc}</small>`;
-    btn.disabled = state.gameOver;
-    btn.onclick = () => {
-      if (state.gameOver) return;
-      state.selectedAction = a.system;
-      render();
-    };
+    btn.className = 'action-btn';
+    btn.innerHTML = `<strong>${action.label}</strong><small>${action.desc}</small>`;
+    btn.disabled = game.gameOver;
+    btn.onclick = () => applyAction(action.name);
     actBtns.appendChild(btn);
   });
 
-  // Advance / restart button
-  const advBtn = document.getElementById('advanceDayBtn');
-  if (state.gameOver) {
-    advBtn.textContent = state.won ? 'Mission Complete — Restart' : 'Mission Failed — Restart';
-    advBtn.disabled = false;
-    advBtn.onclick = () => startMission(state.missionKey);
-  } else {
-    advBtn.textContent = 'Advance Day';
-    advBtn.disabled = !state.selectedAction;
-    advBtn.onclick = () => { if (state.selectedAction) applyAction(); };
-  }
+  // Restart button, only once the mission has ended
+  const restartBtn = document.getElementById('advanceDayBtn');
+  restartBtn.style.display = game.gameOver ? 'block' : 'none';
+  restartBtn.textContent = 'Restart Mission';
+  restartBtn.disabled = false;
+  restartBtn.onclick = () => startMission(game.mission);
 
   // Mission log
   const logEl = document.getElementById('missionLog');
   logEl.innerHTML = '';
-  state.log.forEach(entry => {
+  game.log.forEach(entry => {
     const div = document.createElement('div');
     div.className = 'log-entry ' + entry.type;
     div.innerHTML = `<small>Day ${entry.day}</small><br>${entry.msg}`;
     logEl.appendChild(div);
   });
 
-  // Mission picker active state
+  // Mission picker
   document.querySelectorAll('.mission-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mission === state.missionKey);
+    btn.classList.toggle('active', btn.dataset.mission === game.mission);
   });
 }
 
 // ── Init ─────────────────────────────────────────────────────────────
+function startMission(missionName) {
+  game = createGame(missionName);
+  log(`Mission initiated: ${MISSION_CONFIG[missionName].name}. Survive ${MISSION_CONFIG[missionName].days} days.`, 'success');
+  updateGameState();
+}
+
 document.querySelectorAll('.mission-btn').forEach(btn => {
   btn.addEventListener('click', () => startMission(btn.dataset.mission));
 });
 
-startMission('lunar');
+startMission('moon');

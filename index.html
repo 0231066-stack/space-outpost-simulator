@@ -14,7 +14,7 @@
           <h1>Space Outpost Simulator</h1>
         </div>
         <div class="mission-picker">
-          <button class="mission-btn active" data-mission="lunar">Lunar Base</button>
+          <button class="mission-btn active" data-mission="moon">Moon Base</button>
           <button class="mission-btn" data-mission="mars">Mars Outpost</button>
         </div>
       </header>
@@ -50,9 +50,9 @@
 
         <section class="panel actions-panel">
           <h2>Mission Operations</h2>
-          <p class="hint" id="actionHint">Select one engineering action, then advance the day.</p>
+          <p class="hint" id="actionHint">Choose one engineering action to spend the day.</p>
           <div id="actionButtons" class="action-buttons"></div>
-          <button id="advanceDayBtn" class="primary-btn">Advance Day</button>
+          <button id="advanceDayBtn" class="primary-btn" style="display:none">Restart Mission</button>
         </section>
 
         <section class="panel log-panel">
