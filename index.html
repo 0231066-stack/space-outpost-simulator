@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Space Outpost Simulator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">STEM Mission Challenge</p>
+          <h1>Space Outpost Simulator</h1>
+        </div>
+        <div class="mission-picker">
+          <button class="mission-btn active" data-mission="lunar">Lunar Base</button>
+          <button class="mission-btn" data-mission="mars">Mars Outpost</button>
+        </div>
+      </header>
+
+      <main class="game-layout">
+        <section class="panel overview-panel">
+          <div class="status-strip">
+            <div>
+              <span class="label">Mission</span>
+              <strong id="missionName">Lunar Base</strong>
+            </div>
+            <div>
+              <span class="label">Day</span>
+              <strong id="dayValue">1</strong>
+            </div>
+            <div>
+              <span class="label">Crew</span>
+              <strong id="crewValue">6</strong>
+            </div>
+            <div>
+              <span class="label">Status</span>
+              <strong id="statusValue">Nominal</strong>
+            </div>
+          </div>
+
+          <div class="resource-grid" id="resourceGrid"></div>
+
+          <div class="systems-panel">
+            <h2>Outpost Systems</h2>
+            <div id="systemsList" class="systems-list"></div>
+          </div>
+        </section>
+
+        <section class="panel actions-panel">
+          <h2>Mission Operations</h2>
+          <p class="hint" id="actionHint">Select one engineering action, then advance the day.</p>
+          <div id="actionButtons" class="action-buttons"></div>
+          <button id="advanceDayBtn" class="primary-btn">Advance Day</button>
+        </section>
+
+        <section class="panel log-panel">
+          <h2>Mission Log</h2>
+          <div id="missionLog" class="mission-log"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
