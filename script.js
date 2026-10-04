@@ -120,52 +120,49 @@ function applyAction(actionName) {
 
 // ── Daily simulation ─────────────────────────────────────────────────
 function resolveDailyEvent() {
-  if (game.gameOver) return;
-
   const cfg = MISSION_CONFIG[game.mission];
   const r = game.resources;
-  const s = game.systems;
-  const crew = crewCount();
+  const roll = Math.random();
 
-  // Consumption and production
-  r.oxygen    = clamp(r.oxygen    - (crew * 1.2 - s.lifeSupport * 2.5));
-  r.water     = clamp(r.water     - (crew * 1.0 - s.lifeSupport * 2));
-  r.food      = clamp(r.food      - (crew * 1.2 - s.food * 2.5));
-  r.power     = clamp(r.power + s.power * 2.5 - (s.lifeSupport + s.power + s.food + s.shielding + s.habitat) * 0.9);
-  r.radiation = clamp(r.radiation + cfg.radiationGain - s.shielding * 2.5);
-  r.habitat   = clamp(r.habitat   - (1.8 - s.habitat * 0.5));
+  if (roll < 0.2) {
+    // solar flare
+    r.radiation += 18;
+    r.power -= 10;
+    r.morale -= 6;
+    log('☀ Solar flare! Radiation surged (+18), power and morale dropped.', 'alert');
+  } else if (roll < 0.4) {
+    // dust storm
+    r.power -= 12;
+    r.food -= 6;
+    log('🌪 Dust storm! Power (−12) and food (−6) took a hit.', 'alert');
+  } else if (roll < 0.6) {
+    // equipment issue
+    r.oxygen -= 12;
+    r.power -= 8;
+    log('⚙ Equipment issue! Oxygen (−12) and power (−8) faltered.', 'alert');
+  } else {
+    // good day
+    r.oxygen += 5;
+    r.food += 6;
+    r.morale += 5;
+    log('🙂 Good day — oxygen, food and morale all improved.', 'success');
+  }
 
-  // Morale tracks the overall health of the outpost
-  const health = (r.oxygen + r.food + r.power + r.water + r.habitat + (100 - r.radiation)) / 6;
-  r.morale = clamp(r.morale + (health - 50) / 12);
+  // daily consumption
+  r.oxygen -= 8 + game.systems.lifeSupport * 2;
+  r.food -= 6 + game.systems.food * 2;
+  r.power -= 7 + game.systems.power * 2;
+  r.water -= 5 + game.systems.lifeSupport * 2;
 
-  resolveRandomEvent(cfg);
+  // radiation and habitat trend
+  r.radiation += Math.max(0, 6 - game.systems.shielding * 2);
+  r.habitat -= Math.max(0, 4 - game.systems.habitat * 1.5);
+
+  // keep values within the 0–100 range
+  for (const key in r) r[key] = clamp(r[key]);
+
+  game.day += 1;
   checkMissionEnd(cfg);
-}
-
-// ── Random events ────────────────────────────────────────────────────
-function resolveRandomEvent(cfg) {
-  const r = game.resources;
-
-  if (Math.random() < cfg.solarRisk * 0.4) {
-    const surge = 8 + Math.random() * 10;
-    r.radiation = clamp(r.radiation + surge);
-    r.habitat = clamp(r.habitat - surge * 0.4);
-    log(`☀ Solar storm! Radiation surged (+${Math.round(surge)}).`, 'alert');
-  }
-
-  if (Math.random() < cfg.dustRisk * 0.4) {
-    const loss = 6 + Math.random() * 8;
-    r.power = clamp(r.power - loss);
-    log(`🌪 Dust storm! Power reserves drained (−${Math.round(loss)}).`, 'alert');
-  }
-
-  if (Math.random() < 0.1) {
-    const keys = Object.keys(game.systems);
-    const key = keys[Math.floor(Math.random() * keys.length)];
-    game.systems[key] = Math.max(1, game.systems[key] - 1);
-    log(`⚙ Equipment failure in ${SYSTEM_META[key].label} (−1 level).`, 'alert');
-  }
 }
 
 // ── Win / lose checks ────────────────────────────────────────────────
@@ -191,10 +188,7 @@ function checkMissionEnd(cfg) {
 
   if (game.day >= cfg.days) {
     endGame(true, 'Mission complete! The outpost survived the full mission window.');
-    return;
   }
-
-  game.day++;
 }
 
 function endGame(won, msg) {
