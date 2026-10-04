@@ -109,7 +109,7 @@ h1 {
 
 .status-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 12px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
@@ -303,6 +303,26 @@ h1 {
 
 .log-entry.failure {
   border-left-color: var(--red);
+}
+
+.resource-rate {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.resource-rate.up {
+  color: var(--green);
+}
+
+.resource-rate.down {
+  color: var(--red);
+}
+
+.system-badge.done {
+  background: rgba(111, 231, 178, 0.16);
+  color: var(--green);
 }
 
 @media (max-width: 1050px) {

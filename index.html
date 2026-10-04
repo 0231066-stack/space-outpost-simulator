@@ -24,15 +24,19 @@
           <div class="status-strip">
             <div>
               <span class="label">Mission</span>
-              <strong id="missionName">Lunar Base</strong>
+              <strong id="missionName">Moon Base</strong>
             </div>
             <div>
               <span class="label">Day</span>
-              <strong id="dayValue">1</strong>
+              <strong id="dayValue">1 / 14</strong>
             </div>
             <div>
               <span class="label">Crew</span>
-              <strong id="crewValue">6</strong>
+              <strong id="crewValue">4</strong>
+            </div>
+            <div>
+              <span class="label">Score</span>
+              <strong id="scoreValue">0</strong>
             </div>
             <div>
               <span class="label">Status</span>
@@ -46,11 +50,21 @@
             <h2>Outpost Systems</h2>
             <div id="systemsList" class="systems-list"></div>
           </div>
+
+          <div class="systems-panel">
+            <h2>Crew</h2>
+            <div id="crewList" class="systems-list"></div>
+          </div>
+
+          <div class="systems-panel">
+            <h2>Objectives</h2>
+            <div id="objectivesList" class="systems-list"></div>
+          </div>
         </section>
 
         <section class="panel actions-panel">
           <h2>Mission Operations</h2>
-          <p class="hint" id="actionHint">Choose one engineering action to spend the day.</p>
+          <p class="hint" id="actionHint">Spend the day on one upgrade. Systems produce resources daily, and crew specialists boost their area.</p>
           <div id="actionButtons" class="action-buttons"></div>
           <button id="advanceDayBtn" class="primary-btn" style="display:none">Restart Mission</button>
         </section>

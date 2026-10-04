@@ -1,7 +1,7 @@
 // ── Mission configuration ────────────────────────────────────────────
 const MISSION_CONFIG = {
-  moon: { name: 'Moon Base',    days: 14, radiationGain: 3, solarRisk: 0.20, dustRisk: 0.05 },
-  mars: { name: 'Mars Outpost', days: 21, radiationGain: 2, solarRisk: 0.10, dustRisk: 0.20 },
+  moon: { name: 'Moon Base',    days: 14, radiationGain: 3, difficulty: 'Standard' },
+  mars: { name: 'Mars Outpost', days: 21, radiationGain: 2, difficulty: 'Hard' },
 };
 
 // ── Resource metadata ────────────────────────────────────────────────
@@ -15,16 +15,36 @@ const RESOURCE_META = {
   morale:    { label: 'Crew Morale',       color: '#ff9ecb' },
 };
 
+// Base daily demand, before systems and crew offset it
+const DAILY_DRAIN = { oxygen: 8, food: 6, power: 5, water: 5, habitat: 4 };
+
 // ── System metadata ──────────────────────────────────────────────────
 const SYSTEM_META = {
-  lifeSupport: { label: 'Life Support', desc: 'Oxygen & water recycling' },
-  power:       { label: 'Power',        desc: 'Generation & storage' },
-  food:        { label: 'Food',         desc: 'Hydroponics & rations' },
-  shielding:   { label: 'Shielding',    desc: 'Radiation protection' },
-  habitat:     { label: 'Habitat',      desc: 'Structural integrity' },
+  lifeSupport: { label: 'Life Support', desc: 'Recycles oxygen & water' },
+  power:       { label: 'Power',        desc: 'Generates power' },
+  food:        { label: 'Food',         desc: 'Grows food' },
+  shielding:   { label: 'Shielding',    desc: 'Holds back radiation' },
+  habitat:     { label: 'Habitat',      desc: 'Maintains structure' },
 };
 
-// ── Available actions ────────────────────────────────────────────────
+// ── Crew metadata ────────────────────────────────────────────────────
+const CREW_META = {
+  engineer:         { label: 'Engineer',          desc: 'Boosts power & habitat upkeep' },
+  botanist:         { label: 'Botanist',          desc: 'Boosts food production' },
+  lifeSupport:      { label: 'Life Support Tech', desc: 'Boosts oxygen & water recycling' },
+  shieldSpecialist: { label: 'Shield Specialist', desc: 'Reduces radiation build-up' },
+};
+
+// ── Objectives ───────────────────────────────────────────────────────
+const OBJECTIVE_DEFS = [
+  { id: 'builder',  label: 'Reach level 5 in any system' },
+  { id: 'stocked',  label: 'Hold every resource above 80 at once' },
+  { id: 'shielded', label: 'Bring radiation below 15' },
+  { id: 'morale',   label: 'Raise crew morale above 85' },
+  { id: 'survive',  label: 'Survive the full mission window' },
+];
+
+// ── Upgrade actions ──────────────────────────────────────────────────
 const ACTIONS = [
   { name: 'upgradePower',       label: 'Upgrade Power',        desc: '+1 Power system · +12 Power · −2 Habitat' },
   { name: 'upgradeFood',        label: 'Upgrade Food',         desc: '+1 Food system · +15 Food · −8 Power' },
@@ -67,6 +87,14 @@ function createGame(mission) {
       shieldSpecialist: 1,
     },
 
+    objectives: {
+      builder: false,
+      stocked: false,
+      shielded: false,
+      morale: false,
+      survive: false,
+    },
+
     log: [],
   };
 }
@@ -76,6 +104,35 @@ let game = createGame('moon');
 function clamp(value) { return Math.max(0, Math.min(100, value)); }
 function crewCount() { return Object.values(game.crew).reduce((sum, n) => sum + n, 0); }
 function log(msg, type) { game.log.unshift({ day: game.day, msg, type: type || '' }); }
+
+// ── Economy: systems produce, crew amplifies ─────────────────────────
+function production() {
+  const s = game.systems;
+  const c = game.crew;
+  return {
+    oxygen:    s.lifeSupport * 2.5 + c.lifeSupport * 2,
+    water:     s.lifeSupport * 2   + c.lifeSupport * 1.5,
+    food:      s.food * 2.5        + c.botanist * 3,
+    power:     s.power * 4         + c.engineer * 3,
+    habitat:   s.habitat * 1.5     + c.engineer * 1,
+    radiation: s.shielding * 2     + c.shieldSpecialist * 2,
+  };
+}
+
+// Net change per day — shown on the resource cards
+function netPerDay() {
+  const p = production();
+  const health = (game.resources.oxygen + game.resources.food + game.resources.power + game.resources.water + game.resources.habitat + (100 - game.resources.radiation)) / 6;
+  return {
+    oxygen:    p.oxygen  - DAILY_DRAIN.oxygen,
+    food:      p.food    - DAILY_DRAIN.food,
+    power:     p.power   - DAILY_DRAIN.power,
+    water:     p.water   - DAILY_DRAIN.water,
+    habitat:   p.habitat - DAILY_DRAIN.habitat,
+    radiation: MISSION_CONFIG[game.mission].radiationGain - p.radiation,
+    morale:    (health - 50) / 10,
+  };
+}
 
 // ── Player actions ───────────────────────────────────────────────────
 function applyAction(actionName) {
@@ -114,6 +171,8 @@ function applyAction(actionName) {
       break;
   }
 
+  for (const key in game.resources) game.resources[key] = clamp(game.resources[key]);
+
   resolveDailyEvent();
   updateGameState();
 }
@@ -122,6 +181,7 @@ function applyAction(actionName) {
 function resolveDailyEvent() {
   const cfg = MISSION_CONFIG[game.mission];
   const r = game.resources;
+  const p = production();
   const roll = Math.random();
 
   if (roll < 0.2) {
@@ -129,7 +189,7 @@ function resolveDailyEvent() {
     r.radiation += 18;
     r.power -= 10;
     r.morale -= 6;
-    log('☀ Solar flare! Radiation surged (+18), power and morale dropped.', 'alert');
+    log('☀ Solar flare! Radiation surged (+18), power and morale dipped.', 'alert');
   } else if (roll < 0.4) {
     // dust storm
     r.power -= 12;
@@ -145,24 +205,39 @@ function resolveDailyEvent() {
     r.oxygen += 5;
     r.food += 6;
     r.morale += 5;
-    log('🙂 Good day — oxygen, food and morale all improved.', 'success');
+    log('🙂 A calm day — oxygen, food and morale all recovered.', 'success');
   }
 
-  // daily consumption
-  r.oxygen -= 8 + game.systems.lifeSupport * 2;
-  r.food -= 6 + game.systems.food * 2;
-  r.power -= 7 + game.systems.power * 2;
-  r.water -= 5 + game.systems.lifeSupport * 2;
+  // Systems produce, crews amplify, daily demand is consumed
+  r.oxygen  += p.oxygen  - DAILY_DRAIN.oxygen;
+  r.food    += p.food    - DAILY_DRAIN.food;
+  r.power   += p.power   - DAILY_DRAIN.power;
+  r.water   += p.water   - DAILY_DRAIN.water;
+  r.habitat += p.habitat - DAILY_DRAIN.habitat;
 
-  // radiation and habitat trend
-  r.radiation += Math.max(0, 6 - game.systems.shielding * 2);
-  r.habitat -= Math.max(0, 4 - game.systems.habitat * 1.5);
+  // Radiation builds up; shielding and specialists hold it back
+  r.radiation += cfg.radiationGain - p.radiation;
 
-  // keep values within the 0–100 range
+  // Morale drifts with the overall health of the outpost
+  const health = (r.oxygen + r.food + r.power + r.water + r.habitat + (100 - r.radiation)) / 6;
+  r.morale += (health - 50) / 10;
+
   for (const key in r) r[key] = clamp(r[key]);
+
+  updateObjectives();
 
   game.day += 1;
   checkMissionEnd(cfg);
+}
+
+// ── Objectives ───────────────────────────────────────────────────────
+function updateObjectives() {
+  const r = game.resources;
+  const o = game.objectives;
+  if (Math.max(...Object.values(game.systems)) >= 5) o.builder = true;
+  if (r.oxygen > 80 && r.food > 80 && r.power > 80 && r.water > 80 && r.habitat > 80) o.stocked = true;
+  if (r.radiation < 15) o.shielded = true;
+  if (r.morale > 85) o.morale = true;
 }
 
 // ── Win / lose checks ────────────────────────────────────────────────
@@ -170,13 +245,13 @@ function checkMissionEnd(cfg) {
   const r = game.resources;
 
   const fatal = [
-    [r.oxygen <= 0,     'Oxygen depleted. The crew has suffocated.'],
-    [r.water <= 0,      'Water reserves depleted. The crew has dehydrated.'],
-    [r.food <= 0,       'Food supplies exhausted. The crew has starved.'],
-    [r.power <= 0,      'Power systems offline. The outpost has gone dark.'],
-    [r.habitat <= 0,    'Habitat structural failure. The base has decompressed.'],
-    [r.radiation >= 100,'Radiation levels lethal. The crew has been exposed.'],
-    [r.morale <= 0,     'Crew morale collapsed. The mission has been abandoned.'],
+    [r.oxygen <= 0,      'Oxygen depleted. The crew has suffocated.'],
+    [r.water <= 0,       'Water reserves depleted. The crew has dehydrated.'],
+    [r.food <= 0,        'Food supplies exhausted. The crew has starved.'],
+    [r.power <= 0,       'Power systems offline. The outpost has gone dark.'],
+    [r.habitat <= 0,     'Habitat structural failure. The base has decompressed.'],
+    [r.radiation >= 100, 'Radiation levels lethal. The crew has been exposed.'],
+    [r.morale <= 0,      'Crew morale collapsed. The mission has been abandoned.'],
   ];
 
   for (const [failed, msg] of fatal) {
@@ -186,8 +261,9 @@ function checkMissionEnd(cfg) {
   const critical = [r.oxygen, r.food, r.power, r.water, r.habitat, r.morale].filter(v => v < 20).length;
   game.status = critical >= 2 ? 'Critical' : critical >= 1 ? 'Warning' : 'Nominal';
 
-  if (game.day >= cfg.days) {
-    endGame(true, 'Mission complete! The outpost survived the full mission window.');
+  if (game.day > cfg.days) {
+    game.objectives.survive = true;
+    endGame(true, `Mission complete! The outpost survived all ${cfg.days} days.`);
   }
 }
 
@@ -196,6 +272,18 @@ function endGame(won, msg) {
   game.won = won;
   game.status = won ? 'Mission Complete' : 'Mission Failed';
   log(msg, won ? 'success' : 'failure');
+  log(`Final score: ${computeScore().toLocaleString()} points.`, won ? 'success' : '');
+}
+
+// ── Score ────────────────────────────────────────────────────────────
+function computeScore() {
+  const r = game.resources;
+  const dayPoints = (game.day - 1) * 100;
+  const levelPoints = Object.values(game.systems).reduce((sum, lvl) => sum + lvl, 0) * 150;
+  const resourcePoints = ['oxygen', 'food', 'power', 'water', 'habitat', 'morale'].reduce((sum, k) => sum + Math.round(r[k]), 0) * 5;
+  const objectivePoints = Object.values(game.objectives).filter(Boolean).length * 500;
+  const winBonus = game.won ? 1000 : 0;
+  return dayPoints + levelPoints + resourcePoints + objectivePoints + winBonus;
 }
 
 // ── Rendering ────────────────────────────────────────────────────────
@@ -203,15 +291,24 @@ function updateGameState() {
   const cfg = MISSION_CONFIG[game.mission];
 
   document.getElementById('missionName').textContent = cfg.name;
-  document.getElementById('dayValue').textContent = `${game.day} / ${cfg.days}`;
+  document.getElementById('dayValue').textContent = `${Math.min(game.day, cfg.days)} / ${cfg.days}`;
   document.getElementById('crewValue').textContent = crewCount();
+  document.getElementById('scoreValue').textContent = computeScore().toLocaleString();
   document.getElementById('statusValue').textContent = game.status;
 
-  // Resources
+  const rates = netPerDay();
+
+  // Resources with their daily rate
   const grid = document.getElementById('resourceGrid');
   grid.innerHTML = '';
   for (const [key, meta] of Object.entries(RESOURCE_META)) {
     const val = Math.round(game.resources[key]);
+    const rate = rates[key];
+    const rateText = Math.abs(rate) < 0.05 ? 'steady' : `${rate > 0 ? '+' : ''}${rate.toFixed(1)}/day`;
+    let rateClass = 'steady';
+    if (key === 'radiation') rateClass = rate > 0.05 ? 'down' : rate < -0.05 ? 'up' : 'steady';
+    else rateClass = rate > 0.05 ? 'up' : rate < -0.05 ? 'down' : 'steady';
+
     const card = document.createElement('div');
     card.className = 'resource-card';
     card.innerHTML = `
@@ -220,6 +317,7 @@ function updateGameState() {
         <span class="resource-value"><strong>${val}</strong></span>
       </div>
       <div class="progress-bar"><span class="progress-fill" style="width:${val}%;background:${meta.color}"></span></div>
+      <span class="resource-rate ${rateClass}">${rateText}</span>
     `;
     grid.appendChild(card);
   }
@@ -236,6 +334,33 @@ function updateGameState() {
     `;
     sysList.appendChild(row);
   }
+
+  // Crew
+  const crewList = document.getElementById('crewList');
+  crewList.innerHTML = '';
+  for (const [key, meta] of Object.entries(CREW_META)) {
+    const row = document.createElement('div');
+    row.className = 'system-row';
+    row.innerHTML = `
+      <div><strong>${meta.label}</strong><small>${meta.desc}</small></div>
+      <span class="system-badge">×${game.crew[key]}</span>
+    `;
+    crewList.appendChild(row);
+  }
+
+  // Objectives
+  const objList = document.getElementById('objectivesList');
+  objList.innerHTML = '';
+  OBJECTIVE_DEFS.forEach(def => {
+    const done = game.objectives[def.id];
+    const row = document.createElement('div');
+    row.className = 'system-row';
+    row.innerHTML = `
+      <div><strong>${def.label}</strong></div>
+      <span class="system-badge ${done ? 'done' : ''}">${done ? '✓' : '—'}</span>
+    `;
+    objList.appendChild(row);
+  });
 
   // Actions — choosing one resolves the day
   const actBtns = document.getElementById('actionButtons');
