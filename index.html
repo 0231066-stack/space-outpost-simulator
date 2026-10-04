@@ -14,20 +14,39 @@
   </head>
   <body>
     <div class="app-shell">
-      <div class="scene" id="scene"></div>
-
       <header class="topbar">
         <div>
           <p class="eyebrow">STEM Mission Challenge</p>
           <h1>Space Outpost Simulator</h1>
         </div>
-        <div class="mission-picker">
-          <button class="mission-btn active" data-mission="moon">Moon Base</button>
-          <button class="mission-btn" data-mission="mars">Mars Outpost</button>
+        <div class="topbar-right">
+          <div class="mission-picker">
+            <button class="mission-btn active" data-mission="moon">Moon Base</button>
+            <button class="mission-btn" data-mission="mars">Mars Outpost</button>
+          </div>
+          <button id="restartBtn" class="primary-btn restart-btn" style="display:none">Restart Mission</button>
         </div>
       </header>
 
       <main class="game-layout">
+        <section class="world-panel">
+          <div class="world-frame">
+            <canvas id="worldCanvas" width="416" height="176"></canvas>
+          </div>
+          <div class="world-bar">
+            <div class="world-prompt" id="worldPrompt"><strong>WALK THE BASE</strong>Move with the arrow keys, then stand at a building and press <b>A</b> to spend the day.</div>
+            <div class="world-controls">
+              <div class="dpad">
+                <button class="pad-btn pad-up" data-dir="up" aria-label="Move up">▲</button>
+                <button class="pad-btn pad-left" data-dir="left" aria-label="Move left">◀</button>
+                <button class="pad-btn pad-right" data-dir="right" aria-label="Move right">▶</button>
+                <button class="pad-btn pad-down" data-dir="down" aria-label="Move down">▼</button>
+              </div>
+              <button class="pad-btn pad-a" data-act="action" aria-label="Act">A</button>
+            </div>
+          </div>
+        </section>
+
         <section class="panel overview-panel">
           <div class="status-strip">
             <div>
@@ -70,13 +89,6 @@
           </div>
         </section>
 
-        <section class="panel actions-panel">
-          <h2>Mission Operations</h2>
-          <p class="hint" id="actionHint">Spend the day on one upgrade. Systems produce resources daily, and crew specialists boost their area.</p>
-          <div id="actionButtons" class="action-buttons"></div>
-          <button id="advanceDayBtn" class="primary-btn" style="display:none">Restart Mission</button>
-        </section>
-
         <section class="panel log-panel">
           <h2>Mission Log</h2>
           <div id="missionLog" class="mission-log"></div>
@@ -84,7 +96,7 @@
       </main>
     </div>
 
-    <script src="scene.js"></script>
     <script src="script.js"></script>
+    <script src="scene.js"></script>
   </body>
 </html>

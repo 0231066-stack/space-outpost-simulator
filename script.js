@@ -44,15 +44,6 @@ const OBJECTIVE_DEFS = [
   { id: 'survive',  label: 'Survive the full mission window' },
 ];
 
-// ── Upgrade actions ──────────────────────────────────────────────────
-const ACTIONS = [
-  { name: 'upgradePower',       label: 'Upgrade Power',        desc: '+1 Power system · +12 Power · −2 Habitat' },
-  { name: 'upgradeFood',        label: 'Upgrade Food',         desc: '+1 Food system · +15 Food · −8 Power' },
-  { name: 'upgradeLifeSupport', label: 'Upgrade Life Support', desc: '+1 Life Support · +10 Oxygen · +10 Water · −6 Power' },
-  { name: 'upgradeShielding',   label: 'Upgrade Shielding',    desc: '+1 Shielding · −12 Radiation · −10 Power' },
-  { name: 'repairHabitat',      label: 'Repair Habitat',       desc: '+1 Habitat system · +12 Habitat · −5 Power' },
-];
-
 // ── Game state ───────────────────────────────────────────────────────
 function createGame(mission) {
   return {
@@ -135,7 +126,7 @@ function netPerDay() {
   };
 }
 
-// ── Player actions ───────────────────────────────────────────────────
+// ── Player actions (triggered from the overworld) ────────────────────
 function applyAction(actionName) {
   if (game.gameOver) return;
 
@@ -370,23 +361,9 @@ function updateGameState() {
     objList.appendChild(row);
   });
 
-  // Actions — choosing one resolves the day
-  const actBtns = document.getElementById('actionButtons');
-  actBtns.innerHTML = '';
-  ACTIONS.forEach(action => {
-    const btn = document.createElement('button');
-    btn.className = 'action-btn';
-    btn.innerHTML = `<strong>${action.label}</strong><small>${action.desc}</small>`;
-    btn.disabled = game.gameOver;
-    btn.onclick = () => applyAction(action.name);
-    actBtns.appendChild(btn);
-  });
-
   // Restart button, only once the mission has ended
-  const restartBtn = document.getElementById('advanceDayBtn');
-  restartBtn.style.display = game.gameOver ? 'block' : 'none';
-  restartBtn.textContent = 'Restart Mission';
-  restartBtn.disabled = false;
+  const restartBtn = document.getElementById('restartBtn');
+  restartBtn.style.display = game.gameOver ? 'inline-block' : 'none';
   restartBtn.onclick = () => startMission(game.mission);
 
   // Mission log
@@ -405,6 +382,9 @@ function updateGameState() {
   });
 
   prevResources = { ...game.resources };
+
+  // Let the overworld react (reset the crew sprite on a new mission)
+  if (typeof window.OutpostGame.onUpdate === 'function') window.OutpostGame.onUpdate();
 }
 
 // ── Init ─────────────────────────────────────────────────────────────
@@ -414,6 +394,13 @@ function startMission(missionName) {
   log(`Mission initiated: ${MISSION_CONFIG[missionName].name}. Survive ${MISSION_CONFIG[missionName].days} days.`, 'success');
   updateGameState();
 }
+
+// ── Public API used by the overworld (scene.js) ──────────────────────
+window.OutpostGame = {
+  applyAction,
+  state: () => game,
+  onUpdate: null,
+};
 
 document.querySelectorAll('.mission-btn').forEach(btn => {
   btn.addEventListener('click', () => startMission(btn.dataset.mission));

@@ -39,19 +39,7 @@ body {
   box-shadow: 0 0 0 3px #3b424c, 12px 12px 0 rgba(0, 0, 0, 0.4);
 }
 
-.scene {
-  line-height: 0;
-  background: #7ec850;
-  border-bottom: 5px solid #0c1016;
-}
-
-.scene svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  image-rendering: pixelated;
-}
-
+/* ── Top bar ─────────────────────────────────────────────────────── */
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -81,12 +69,18 @@ h1 {
   color: #ffffff;
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .mission-picker {
   display: flex;
   gap: 8px;
 }
 
-.mission-btn, .action-btn, .primary-btn {
+.mission-btn, .primary-btn, .pad-btn {
   border: 3px solid var(--ink);
   background: var(--box);
   color: var(--ink);
@@ -109,13 +103,125 @@ h1 {
   box-shadow: 0 0 0 rgba(0, 0, 0, 0);
 }
 
+.primary-btn {
+  padding: 10px 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  background: var(--yellow);
+}
+
+.primary-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+/* ── Layout ──────────────────────────────────────────────────────── */
 .game-layout {
   display: grid;
-  grid-template-columns: 2fr 1.15fr 1.1fr;
+  grid-template-columns: 1.55fr 1fr;
   gap: 16px;
   padding: 18px;
 }
 
+/* ── Overworld ───────────────────────────────────────────────────── */
+.world-panel {
+  grid-column: 1 / -1;
+  background: #20262e;
+  border: 4px solid #0c1016;
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.world-frame {
+  line-height: 0;
+  background: #7ec850;
+}
+
+.world-frame canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.world-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-top: 5px solid #0c1016;
+}
+
+.world-prompt {
+  flex: 1;
+  min-height: 62px;
+  padding: 10px 12px;
+  background: var(--box);
+  border: 3px solid var(--ink);
+  box-shadow: inset 0 0 0 2px var(--frame), 4px 4px 0 rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.world-prompt strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+}
+
+.world-prompt b {
+  padding: 0 5px;
+  background: var(--yellow);
+  border: 2px solid var(--ink);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+}
+
+.world-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 24px);
+  grid-template-rows: repeat(3, 24px);
+  gap: 2px;
+}
+
+.pad-up { grid-area: 1 / 2; }
+.pad-left { grid-area: 2 / 1; }
+.pad-right { grid-area: 2 / 3; }
+.pad-down { grid-area: 3 / 2; }
+
+.pad-btn {
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.pad-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  background: #e2e6d4;
+}
+
+.pad-a {
+  width: 38px;
+  height: 38px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  background: var(--yellow);
+}
+
+/* ── Dialog-box panels ───────────────────────────────────────────── */
 .panel {
   background: var(--box);
   border: 4px solid var(--ink);
@@ -263,77 +369,11 @@ h1 {
   color: #1a7a2e;
 }
 
-.actions-panel h2, .log-panel h2 {
-  margin-bottom: 12px;
-}
-
-.hint {
-  font-size: 16px;
-  color: #5c6357;
-  margin-bottom: 14px;
-}
-
-.action-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.action-btn {
-  width: 100%;
-  text-align: left;
-  padding: 12px 14px;
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-}
-
-.action-btn strong {
-  display: block;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
-  line-height: 1.5;
-  margin-bottom: 6px;
-}
-
-.action-btn small {
-  color: #5c6357;
-  font-size: 16px;
-}
-
-.action-btn:hover {
-  background: var(--box-shade);
-}
-
-.action-btn:active {
-  transform: translate(4px, 4px);
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-  background: #e2e6d4;
-}
-
-.action-btn:disabled, .primary-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.primary-btn {
-  width: 100%;
-  margin-top: 16px;
-  padding: 12px 14px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 10px;
-  background: var(--yellow);
-}
-
-.primary-btn:active {
-  transform: translate(4px, 4px);
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-}
-
 .mission-log {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 520px;
+  max-height: 620px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -399,6 +439,15 @@ h1 {
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .world-bar {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .world-controls {
+    justify-content: center;
   }
 }
 
